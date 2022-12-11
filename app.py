@@ -4,7 +4,6 @@
 ###
 from flask import Flask, jsonify, render_template, request
 import numpy as np
-import geopy.distance as ps
 from linebot.models import (
     MessageEvent, TextMessage, TextSendMessage,TemplateSendMessage,ImageSendMessage, StickerSendMessage, AudioSendMessage, FlexSendMessage
 )
