@@ -358,6 +358,7 @@ def flexmessage(query):
         }
       }'''%(imgUrl,productName,desc,cont)
     return flex
+
 from linebot.models import (TextSendMessage,FlexSendMessage)
 import json
 def handle_text(inpmessage):
