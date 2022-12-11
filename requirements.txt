@@ -102,7 +102,7 @@ soupsieve==2.3.2.post1
 spacy==3.4.3
 spacy-legacy==3.0.10
 spacy-loggers==1.0.3
-srsly==1.0.6
+srsly==2.4.0
 ssg==0.0.8
 tenacity==8.1.0
 termcolor==2.1.0
