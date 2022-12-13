@@ -2,7 +2,7 @@
 #-*-coding: utf-8 -*-
 ##from __future__ import absolute_import
 ###
-from flask import request, Flask
+from flask import Flask, jsonify, render_template, request
 import numpy as np
 from linebot.models import (
     MessageEvent, TextMessage, TextSendMessage,TemplateSendMessage,ImageSendMessage, StickerSendMessage, AudioSendMessage, FlexSendMessage
@@ -11,7 +11,7 @@ from linebot.models.template import *
 from linebot import (
     LineBotApi, WebhookHandler
 )
-import json
+
 import pandas as pd
 import plotly.graph_objs as go
 from pythainlp.corpus import thai_stopwords
@@ -57,12 +57,15 @@ def remove_stopword(text):
     lenx=len(text)
     i=0
     while i < lenx:
+
       list_word = word_tokenize(text[i], keep_whitespace=False)
       text[i] = [i for i in list_word if i not in stopwords]
       i += 1
     return text
 
 menu_test3_ingr=remove_stopword(menu_test2_ingr)
+
+from pythainlp.tokenize import sent_tokenize
 def remove_stopword2(text):
     lenx=len(text)
     i=0
@@ -155,6 +158,8 @@ fig = go.Figure(data=data, layout=layout)
 # iplot(fig,filename='basic-bar')
 menu_df3.describe()
 train = menu_df3
+len(train)
+train.shape
 data_train= train['รายละเอียดอาหาร']
 target_train= train['ชื่ออาหาร']
 # print(data_train.shape)
@@ -197,20 +202,22 @@ def aek():
     lst = []
     inpmessage = "ชื่อ"
     res = conv[conv['intent'] == inpmessage]
-
     if len(res) == 0:
-        lst.append(inpmessage)  # adding the element
+        flex = flexmessage(inpmessage)
+    else:
+        flex = res['callback'].values[0]
+
+    if flex == 'nodata':
+        lst.append(flex)  # adding the element
         xtest_count = count_vect.transform(lst)
         xtest_tfidf = tfidf_vect.transform(lst)
         xtest_tfidf_ngram = tfidf_vect_ngram.transform(lst)
         nb_preds = nb_classifier.predict(xtest_tfidf_ngram)
-        if len(nb_preds[0]) > 0 and nb_preds[0] != 'Tompei':
+        if len(nb_preds[0]) > 0 and nb_preds[0]!='Tompei':
             replyObj = str(nb_preds)
         else:
-            replyObj = "เอ๋...ยังไงนะไม่เข้าใจ?"
-    else:
-        flex = res['callback'].values[0]
-        replyObj=flex
+            replyObj = "ลองอธิบายเจาะจงกว่านี้ได้มั๊ยอะ"
+    else: replyObj = flex
     return replyObj
 @app.route('/webhook', methods=['POST'])
 def callback():
@@ -222,6 +229,8 @@ def callback():
         event = decoded['events'][i]
         event_handle(event)
     return '',200
+
+
 def event_handle(event):
     print(event)
     try:
@@ -285,30 +294,127 @@ def getdata(query):
         cont = res['Contact'].values[0]
         return productName,imgUrl,desc,cont
 
+def flexmessage(query):
+    res = getdata(query)
+    if res == 'nodata':
+        return 'nodata'
+    else:
+        productName,imgUrl,desc,cont = res
+    flex = '''
+    {
+        "type": "bubble",
+        "hero": {
+          "type": "image",
+          "url": "%s",
+          "margin": "none",
+          "size": "full",
+          "aspectRatio": "1:1",
+          "aspectMode": "cover",
+          "action": {
+            "type": "uri",
+            "label": "Action",
+            "uri": "https://linecorp.com"
+          }
+        },
+        "body": {
+          "type": "box",
+          "layout": "vertical",
+          "spacing": "md",
+          "action": {
+            "type": "uri",
+            "label": "Action",
+            "uri": "https://linecorp.com"
+          },
+          "contents": [
+            {
+              "type": "text",
+              "text": "%s",
+              "size": "xl",
+              "weight": "bold"
+            },
+            {
+              "type": "text",
+              "text": "%s",
+              "wrap": true
+            }
+          ]
+        },
+        "footer": {
+          "type": "box",
+          "layout": "vertical",
+          "contents": [
+            {
+              "type": "button",
+              "action": {
+                "type": "postback",
+                "label": "ติดต่อคนขาย",
+                "data": "%s"
+              },
+              "color": "#F67878",
+              "style": "primary"
+            }
+          ]
+        }
+      }'''%(imgUrl,productName,desc,cont)
+    return flex
+from linebot.models import (TextSendMessage,FlexSendMessage)
+import json
 def handle_text(inpmessage):
     lst = []
     res = conv[conv['intent'] == inpmessage]
     if len(res) == 0:
+        flex = flexmessage(inpmessage)
+    else:
+        flex = res['callback'].values[0]
+
+    if flex == 'nodata':
         lst.append(inpmessage)  # adding the element
         xtest_count = count_vect.transform(lst)
         xtest_tfidf = tfidf_vect.transform(lst)
         xtest_tfidf_ngram = tfidf_vect_ngram.transform(lst)
         nb_preds = nb_classifier.predict(xtest_tfidf_ngram)
         if len(nb_preds[0]) > 0 and nb_preds[0] != 'Tompei':
-            replyObj = TextSendMessage(text=nb_preds[0] + "ก็น่าสนใจนะวิ")
+            replyObj = TextSendMessage(text=nb_preds[0])
         else:
-            replyObj = TextSendMessage(text="เอ๋...ยังไงนะไม่เข้าใจ?")
+            replyObj = TextSendMessage(text="ลองอธิบายเจาะจงกว่านี้ได้มั๊ยอะ")
     else:
-        flex = res['callback'].values[0]
-        replyObj = TextSendMessage(text=flex)
+        replyObj = flex
     return replyObj
 
 def handle_postback(inpmessage):
     replyObj = TextSendMessage(text=inpmessage)
     return replyObj
+
+
+def handle_location(lat,lng,cdat,topK):
+    result = getdistace(lat, lng,cdat)
+    result = result.sort_values(by='km')
+    result = result.iloc[0:topK]
+    txtResult = ''
+    for i in range(len(result)):
+        kmdistance = '%.1f'%(result.iloc[i]['km'])
+        newssource = str(result.iloc[i]['News_Soruce'])
+        txtResult = txtResult + 'ห่าง %s กิโลเมตร\n%s\n\n'%(kmdistance,newssource)
+    return txtResult[0:-2]
+
+
 def getcaseflex(lat,lng):
     url = 'http://botnoiflexapi.herokuapp.com/getnearcase?lat=%s&long=%s'%(lat,lng)
     res = requests.get(url).json()
     return res
+
+def getdistace(latitude, longitude,cdat):
+  coords_1 = (float(latitude), float(longitude))
+  ## create list of all reference locations from a pandas DataFrame
+  latlngList = cdat[['Latitude','Longitude']].values
+  ## loop and calculate distance in KM using geopy.distance library and append to distance list
+  kmsumList = []
+  for latlng in latlngList:
+    coords_2 = (float(latlng[0]),float(latlng[1]))
+    kmsumList.append(ps.vincenty(coords_1, coords_2).km)
+  cdat['km'] = kmsumList
+  return cdat
+
+
 if __name__ == '__main__':
     app.run(debug=True)
